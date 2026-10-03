@@ -21,6 +21,14 @@ CREATE TABLE IF NOT EXISTS report_outbox (
  expires_at timestamptz NOT NULL,
  CHECK(state IN ('queued','sending','sent','retry','blocked','uncertain','expired')));
 CREATE INDEX IF NOT EXISTS report_outbox_pending ON report_outbox(state,available_at);
+CREATE TABLE IF NOT EXISTS delivery_tests (run_key text PRIMARY KEY,state text NOT NULL,slack_ts text,
+ created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
+CREATE TABLE IF NOT EXISTS slack_source_health (channel text PRIMARY KEY,last_success timestamptz,last_error text,
+ oldest_requested timestamptz,history_complete boolean DEFAULT false,threads_complete boolean DEFAULT false,
+ updated_at timestamptz DEFAULT now());
+CREATE TABLE IF NOT EXISTS analysis_runs (run_key text PRIMARY KEY,kind text NOT NULL,state text NOT NULL DEFAULT 'needs_review',
+ payload jsonb NOT NULL,created_at timestamptz DEFAULT now());
+
 '''
 
 def connect():

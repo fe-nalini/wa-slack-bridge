@@ -11,7 +11,7 @@ class Slack:
         self.session.headers['Authorization']='Bearer '+token
     def call(self,method,payload):
         self.last_method=method
-        if method in {'auth.test','conversations.info','conversations.members'}:
+        if method in {'auth.test','conversations.info','conversations.members','conversations.history'}:
             r=self.session.get('https://slack.com/api/'+method,params=payload,timeout=(10,30))
         elif method=='chat.postMessage':
             r=self.session.post('https://slack.com/api/'+method,json=payload,timeout=(10,30))
@@ -28,6 +28,9 @@ def validate_destination(client,channel,allowed_user):
     if not channel or not allowed_user:
         raise ValueError('destination_not_configured')
     actor=client.call('auth.test',{})['user_id']
+    expected_actor=os.getenv('SLACK_EXPECTED_BOT_USER_ID','')
+    if expected_actor and actor!=expected_actor:
+        raise ValueError('unexpected_app_identity')
     info=client.call('conversations.info',{'channel':channel})['channel']
     if not info.get('is_private') or info.get('is_shared') or info.get('is_ext_shared'):
         raise ValueError('destination_not_exclusive_private')
@@ -56,7 +59,7 @@ def probe_destination():
         # Only fixed codes may reach logs; never echo response bodies or secrets.
         code=str(exc)
         allowed={'destination_not_configured','destination_not_exclusive_private',
-                 'membership_not_fully_verified','unexpected_recipient',
+                 'membership_not_fully_verified','unexpected_recipient','unexpected_app_identity',
                  'slack_invalid_auth','slack_not_authed','slack_token_revoked',
                  'slack_account_inactive','slack_missing_scope','slack_channel_not_found',
                  'slack_not_in_channel','slack_ratelimited','slack_http_429',
@@ -76,6 +79,16 @@ def deliver(text,client_message_id):
     # inference publishes from the lexical candidate queue in this version.
     if os.getenv('SLACK_PUBLISH_ENABLED','false')!='true':
         raise ValueError('publishing_disabled')
+    return _send(text,client_message_id)
+
+def deliver_test(text,client_message_id):
+    # Fixed technical message only; independent of disabled analysis publishing.
+    from .diagnostics import TEST_TEXT
+    if not os.getenv('SLACK_DELIVERY_TEST_ID') or text!=TEST_TEXT:
+        raise ValueError('technical_test_not_authorized')
+    return _send(text,client_message_id)
+
+def _send(text,client_message_id):
     token=os.getenv('SLACK_BOT_TOKEN','')
     if not token:
         raise ValueError('slack_credential_missing')

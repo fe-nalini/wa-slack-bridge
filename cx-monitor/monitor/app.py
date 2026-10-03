@@ -10,7 +10,7 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route, Mount
 from psycopg.types.json import Jsonb
-from . import store, worker, outbox
+from . import store, worker, outbox, analysis
 from .core import scrub
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')
@@ -36,6 +36,10 @@ def ingestion_health() -> dict:
             'report_delivery':{'enabled':os.getenv('SLACK_PUBLISH_ENABLED','false')=='true',
                 'credential_configured':bool(os.getenv('SLACK_BOT_TOKEN')),
                 'queue':store.query('SELECT state,count(*) AS reports FROM report_outbox GROUP BY state')},
+            'analysis_generation':{'enabled':os.getenv('ANALYSIS_ENABLED','false')=='true',
+                'runs':store.query('SELECT kind,state,count(*) AS runs,max(created_at) AS latest FROM analysis_runs GROUP BY kind,state')},
+            'source_sync_health':store.query('SELECT * FROM slack_source_health'),
+            'technical_tests':store.query('SELECT run_key,state,slack_ts,updated_at FROM delivery_tests'),
             'source_report_freshness':store.query('SELECT channel,count(*) AS reports,max(imported_at) AS last_import FROM slack_reports GROUP BY channel'),
             'limitations':['Polling MVP: 5-minute target, not realtime guarantee.',
                 'Edits/deletes not guaranteed by polling; webhook capture pending.',
@@ -92,6 +96,14 @@ def read_source_reports(term:str='',offset:int=0,limit:int=50) -> dict:
         WHERE channel=%s AND (%s='' OR body ILIKE %s) ORDER BY ts DESC LIMIT %s OFFSET %s''',
         (os.getenv('SLACK_SOURCE_CHANNEL',''),term,'%'+term+'%',limit+1,offset)),offset,limit)
 
+@mcp.tool(annotations=READ)
+def read_analysis_runs(run_key:str='',offset:int=0,limit:int=10) -> dict:
+    """Read generated evidence dossiers. They are unreviewed triage, never verified failure findings."""
+    limit=min(bounded(limit),10);offset=max(0,offset)
+    rows=store.query("SELECT run_key,kind,state,payload,created_at FROM analysis_runs WHERE (%s='' OR run_key=%s) ORDER BY created_at DESC LIMIT %s OFFSET %s",
+                     (run_key,run_key,limit+1,offset))
+    return {**payload(rows,offset,limit),'requires_context_review':True}
+
 async def health(request):
     return JSONResponse({'service':'cx-monitor','status':'running','capture_mode':'polling'})
 
@@ -122,12 +134,15 @@ async def lifespan(app):
         await asyncio.to_thread(store.initialize)
     stop=worker.start() if os.getenv('WORKER_ENABLED','true')=='true' else None
     delivery_stop=outbox.start() if os.getenv('WORKER_ENABLED','true')=='true' else None
+    analysis_stop=analysis.start() if os.getenv('WORKER_ENABLED','true')=='true' else None
     async with mcp.session_manager.run():
         yield
     if stop:
         stop.set()
     if delivery_stop:
         delivery_stop.set()
+    if analysis_stop:
+        analysis_stop.set()
 
 inner=Starlette(routes=[Route('/health',health),Route('/internal/slack-import',import_reports,methods=['POST']),
     Route('/internal/reviewed-reports',enqueue_report,methods=['POST']),Mount('/',mcp.streamable_http_app())],lifespan=lifespan)

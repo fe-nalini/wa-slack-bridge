@@ -28,6 +28,10 @@ class DeliverySafety(unittest.TestCase):
                 Slack('synthetic').call('conversations.invite',{'channel':'synthetic-channel'})
             factory.return_value.get.assert_not_called()
             factory.return_value.post.assert_not_called()
+    def test_different_authenticated_app_is_rejected(self):
+        with patch.dict('os.environ',SLACK_EXPECTED_BOT_USER_ID='expected-app'):
+            with self.assertRaisesRegex(ValueError,'unexpected_app_identity'):
+                validate_destination(FakeSlack(),'synthetic-channel','owner')
     def test_only_owner_and_current_app_can_receive(self):
         validate_destination(FakeSlack(),'synthetic-channel','owner')
     def test_added_human_or_other_bot_blocks_delivery(self):

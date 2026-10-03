@@ -70,3 +70,35 @@ Only configure credentials securely, never in source or chat. Do not turn it on
 until queued reports have been reviewed. Scheduling, semantic report generation,
 continuous source import and account MCP registration remain activation gates.
 `ingestion_health` now exposes outbox states and source-import freshness.
+
+
+## Evidence generation and isolated technical test
+
+`ANALYSIS_ENABLED=true` activates hourly persisted evidence bundles; weekday
+09:00/15:00 America/Sao_Paulo bundles are also stored as review dossiers. Each
+bundle includes up to 100 WhatsApp signal messages with adjacent context, up to
+200 recent Slack statements, freshness/error state, truncation markers and
+explicit gaps. This is deterministic preparation for review, not semantic
+analysis or validated SLA/blame. Bundles never enqueue or post themselves.
+`read_analysis_runs` is the seventh authenticated read-only MCP tool.
+
+`SLACK_MONITOR_SOURCE_CHANNELS` selects only the three approved source channels.
+Source history is polled every five minutes, over a rolling 72-hour window,
+with bounded pagination and explicit partial/error status. The same Jornada
+bot needs the relevant `channels:history`/`groups:history` scope and membership.
+Threads are not fetched by this bot reader. Historical imports are preserved,
+with failed live reads separately marked stale/blocked. Media, confirmed Deal
+identity mapping and live dashboard integration remain pending.
+
+`slas.classify` compares recorded date-only deadlines in the source's local
+calendar: completion after the original planned date remains late; unfinished
+steps become overdue after that date ends. It never recalculates business days
+or assigns blame. Step 0 is forms de handoff; step 7 is forms do Club.
+This evaluator is not fed by live dashboard records yet.
+
+`SLACK_DELIVERY_TEST_ID` authorizes one fixed, customer-data-free technical
+message, even while reviewed-analysis publishing stays off. A separate table
+claims each ID once before any send; interruption/timeout is never resent.
+There is no arbitrary test-message endpoint or parameter. Setting
+`SLACK_EXPECTED_BOT_USER_ID` also pins destination validation to the intended
+existing app. None of these flags changes the original WhatsApp bridge.

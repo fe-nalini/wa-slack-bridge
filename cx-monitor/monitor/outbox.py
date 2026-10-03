@@ -8,7 +8,7 @@ import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from psycopg.types.json import Jsonb
-from . import store, slack_delivery
+from . import store, slack_delivery, diagnostics
 
 log = logging.getLogger('cx-outbox')
 
@@ -111,6 +111,10 @@ def process_once():
 def run(stop):
     result = slack_delivery.probe_destination()
     log.info('slack_preflight status=%s code=%s stage=%s', result['status'], result['code'], result['stage'])
+    try:
+        diagnostics.send_once()
+    except Exception as exc:
+        log.warning('technical_delivery_test_failed code=%s',type(exc).__name__)
     while not stop.is_set():
         try:
             for _ in range(10):

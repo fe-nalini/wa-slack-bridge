@@ -55,7 +55,7 @@ class SafetyTests(unittest.TestCase):
                 'protocolVersion':'2025-03-26','capabilities':{},'clientInfo':{'name':'test','version':'1'}}})
             self.assertEqual(init.status_code,200,init.text)
             result=c.post('/mcp',headers=h,json={'jsonrpc':'2.0','id':2,'method':'tools/list'}).json()['result']
-            self.assertEqual(len(result['tools']),6)
+            self.assertEqual(len(result['tools']),7)
             for tool in result['tools']:
                 self.assertTrue(tool['annotations']['readOnlyHint'])
             self.assertNotIn('send', ' '.join(t['name'] for t in result['tools']))
