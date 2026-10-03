@@ -41,3 +41,11 @@ evidence; do not delete it as a rollback shortcut.
 Select `cx-monitor/Dockerfile` as the Dockerfile. Set the service start command to
 `uvicorn monitor.app:app --host 0.0.0.0 --port 8080 --no-access-log`.
 Keep the PORT variable and public routing aligned at 8080.
+
+## Private delivery adapter
+
+The delivery adapter verifies a private, unshared destination containing only
+the configured owner and the authenticated app before sending. Additional
+tests cover unexpected humans/bots, public/shared channels and a missing owner.
+It is disabled by default and not wired to automatic report publication yet.
+Credentials, scheduling and the reviewed-report workflow are activation gates.
