@@ -1,4 +1,6 @@
 import logging
+import hashlib
+import json
 import os
 import threading
 import time
@@ -42,6 +44,9 @@ def save_page(client, instance, page):
     with store.connect() as db:
         for record in records:
             m=normalize(instance,record)
+            source_id=str(record.get('id') or hashlib.sha256(json.dumps(scrub(record),sort_keys=True).encode()).hexdigest())
+            db.execute('INSERT INTO provider_records(instance,source_id,chat,mid,exclusion) VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING',
+                (instance,source_id,m['chat'] if m else None,m['mid'] if m else None,None if m else 'status_or_missing_chat'))
             if m:
                 store.save_message(db,m,candidate(m['text']))
     return len(records),pages,total
@@ -95,9 +100,10 @@ def sync_instance(client, instance):
     with store.connect() as db:
         # counts are recoverable records, not proof of pre-entry or deleted history
         local=db.execute('SELECT count(*) AS n FROM messages WHERE instance=%s',(instance,)).fetchone()['n']
+        source_count=db.execute('SELECT count(*) AS n FROM provider_records WHERE instance=%s',(instance,)).fetchone()['n']
         status='scanning'
         if finished:
-            status='scanned_counts_match' if local==total else 'scanned_counts_differ'
+            status='scanned_counts_match' if source_count==total else 'scanned_counts_differ'
         db.execute('''UPDATE checkpoints SET next_page=%s,expected_total=%s,last_success=now(),last_error=NULL,
            reconciliation=%s,inventory_error=%s,scanned_at=CASE WHEN %s THEN now() ELSE scanned_at END WHERE instance=%s''',
            (page,total,status,inventory_error,finished,instance))

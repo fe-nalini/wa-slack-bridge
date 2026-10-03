@@ -31,6 +31,7 @@ def ingestion_health() -> dict:
     """Inspect capture status, gaps, media and stored counts before interpreting absence."""
     return {'instances':store.query('SELECT * FROM instances'),
             'checkpoints':store.query('SELECT * FROM checkpoints'),
+            'provider_records':store.query('SELECT instance,count(*) AS scanned_records,count(*) FILTER(WHERE exclusion IS NOT NULL) AS excluded_records FROM provider_records GROUP BY instance'),
             'totals':store.query('SELECT count(*) AS messages,count(DISTINCT(instance,chat)) AS chats,min(ts) AS earliest,max(ts) AS latest,count(*) FILTER(WHERE media IS NOT NULL) AS media_not_downloaded FROM messages'),
             'limitations':['Polling MVP: 5-minute target, not realtime guarantee.',
                 'Edits/deletes not guaranteed by polling; webhook capture pending.',

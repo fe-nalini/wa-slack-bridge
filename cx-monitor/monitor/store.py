@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS messages (instance text, chat text, mid text, sender 
 CREATE INDEX IF NOT EXISTS messages_chat_time ON messages(instance,chat,ts);
 CREATE TABLE IF NOT EXISTS candidates (instance text, chat text, mid text, signal text, state text DEFAULT 'needs_review', created_at timestamptz DEFAULT now(), PRIMARY KEY(instance,chat,mid,signal));
 CREATE TABLE IF NOT EXISTS checkpoints (instance text PRIMARY KEY, next_page integer DEFAULT 1, expected_total integer DEFAULT 0, scanned_at timestamptz, last_success timestamptz, last_error text, reconciliation text DEFAULT 'pending', inventory_error text);
+CREATE TABLE IF NOT EXISTS provider_records (instance text, source_id text, chat text, mid text, exclusion text, PRIMARY KEY(instance,source_id));
 CREATE TABLE IF NOT EXISTS slack_reports (channel text, ts text, author text, body text, thread_ts text, raw jsonb, imported_at timestamptz DEFAULT now(), PRIMARY KEY(channel,ts));
 '''
 
