@@ -124,7 +124,7 @@ class Guard:
         domain=os.getenv('RAILWAY_PUBLIC_DOMAIN','localhost')
         host=headers.get(b'host',b'').decode().split(':')[0]
         allowed_hosts={domain,os.getenv('RAILWAY_PRIVATE_DOMAIN',''), 'localhost','127.0.0.1','testserver'}
-        if host not in allowed_hosts:
+        if scope['path']!='/health' and host not in allowed_hosts:
             return await JSONResponse({'error':'host_forbidden'},status_code=403)(scope,receive,send)
         if origin and origin not in {'https://'+domain,'http://localhost:8000','https://chatgpt.com'}:
             return await JSONResponse({'error':'origin_forbidden'},status_code=403)(scope,receive,send)
