@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from monitor.slack_delivery import validate_destination, probe_destination
+from monitor.slack_delivery import Slack, validate_destination, probe_destination
 
 class FakeSlack:
     def __init__(self,private=True,shared=False,members=None):
@@ -12,6 +12,22 @@ class FakeSlack:
         raise AssertionError('No send is permitted during destination verification')
 
 class DeliverySafety(unittest.TestCase):
+    def test_read_methods_pass_channel_and_cursor_as_get_parameters(self):
+        with patch('monitor.slack_delivery.requests.Session') as factory:
+            factory.return_value.get.return_value.json.return_value={'ok':True}
+            client=Slack('synthetic')
+            for method in ['conversations.info','conversations.members']:
+                payload={'channel':'synthetic-channel','cursor':'next-page'}
+                client.call(method,payload)
+                factory.return_value.get.assert_called_with('https://slack.com/api/'+method,
+                    params=payload,timeout=(10,30))
+            factory.return_value.post.assert_not_called()
+    def test_unsupported_method_never_reaches_slack(self):
+        with patch('monitor.slack_delivery.requests.Session') as factory:
+            with self.assertRaisesRegex(ValueError,'unsupported_slack_method'):
+                Slack('synthetic').call('conversations.invite',{'channel':'synthetic-channel'})
+            factory.return_value.get.assert_not_called()
+            factory.return_value.post.assert_not_called()
     def test_only_owner_and_current_app_can_receive(self):
         validate_destination(FakeSlack(),'synthetic-channel','owner')
     def test_added_human_or_other_bot_blocks_delivery(self):

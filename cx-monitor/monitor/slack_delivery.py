@@ -11,7 +11,12 @@ class Slack:
         self.session.headers['Authorization']='Bearer '+token
     def call(self,method,payload):
         self.last_method=method
-        r=self.session.post('https://slack.com/api/'+method,json=payload,timeout=(10,30))
+        if method in {'auth.test','conversations.info','conversations.members'}:
+            r=self.session.get('https://slack.com/api/'+method,params=payload,timeout=(10,30))
+        elif method=='chat.postMessage':
+            r=self.session.post('https://slack.com/api/'+method,json=payload,timeout=(10,30))
+        else:
+            raise ValueError('unsupported_slack_method')
         if not r.ok:
             raise ValueError('slack_http_'+str(r.status_code))
         d=r.json()
