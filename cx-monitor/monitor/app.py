@@ -10,7 +10,7 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route, Mount
 from psycopg.types.json import Jsonb
-from . import store, worker
+from . import store, worker, outbox
 from .core import scrub
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')
@@ -33,11 +33,15 @@ def ingestion_health() -> dict:
             'checkpoints':store.query('SELECT * FROM checkpoints'),
             'provider_records':store.query('SELECT instance,count(*) AS scanned_records,count(*) FILTER(WHERE exclusion IS NOT NULL) AS excluded_records FROM provider_records GROUP BY instance'),
             'totals':store.query('SELECT count(*) AS messages,count(DISTINCT(instance,chat)) AS chats,min(ts) AS earliest,max(ts) AS latest,count(*) FILTER(WHERE media IS NOT NULL) AS media_not_downloaded FROM messages'),
+            'report_delivery':{'enabled':os.getenv('SLACK_PUBLISH_ENABLED','false')=='true',
+                'credential_configured':bool(os.getenv('SLACK_BOT_TOKEN')),
+                'queue':store.query('SELECT state,count(*) AS reports FROM report_outbox GROUP BY state')},
+            'source_report_freshness':store.query('SELECT channel,count(*) AS reports,max(imported_at) AS last_import FROM slack_reports GROUP BY channel'),
             'limitations':['Polling MVP: 5-minute target, not realtime guarantee.',
                 'Edits/deletes not guaranteed by polling; webhook capture pending.',
                 'Author roles, group BU and member identity not yet validated.',
                 'Media not downloaded/transcribed.',
-                'Automatic Slack publishing not configured.']}
+                'Publishing requires reviewed reports and explicit activation; candidates are never published automatically.']}
 
 @mcp.tool(annotations=READ)
 def list_conversations(instance:str='',search:str='',offset:int=0,limit:int=50) -> dict:
@@ -91,6 +95,13 @@ def read_source_reports(term:str='',offset:int=0,limit:int=50) -> dict:
 async def health(request):
     return JSONResponse({'service':'cx-monitor','status':'running','capture_mode':'polling'})
 
+async def enqueue_report(request):
+    try:
+        result=await asyncio.to_thread(outbox.enqueue,await request.json())
+    except ValueError as exc:
+        return JSONResponse({'error':str(exc)},status_code=409 if str(exc)=='report_key_conflict' else 400)
+    return JSONResponse(result,status_code=202)
+
 async def import_reports(request):
     data=await request.json()
     source=os.getenv('SLACK_SOURCE_CHANNEL','')
@@ -107,13 +118,19 @@ async def import_reports(request):
 
 @asynccontextmanager
 async def lifespan(app):
+    if os.getenv('WORKER_ENABLED','true')=='true':
+        await asyncio.to_thread(store.initialize)
     stop=worker.start() if os.getenv('WORKER_ENABLED','true')=='true' else None
+    delivery_stop=outbox.start() if os.getenv('WORKER_ENABLED','true')=='true' else None
     async with mcp.session_manager.run():
         yield
     if stop:
         stop.set()
+    if delivery_stop:
+        delivery_stop.set()
 
-inner=Starlette(routes=[Route('/health',health),Route('/internal/slack-import',import_reports,methods=['POST']),Mount('/',mcp.streamable_http_app())],lifespan=lifespan)
+inner=Starlette(routes=[Route('/health',health),Route('/internal/slack-import',import_reports,methods=['POST']),
+    Route('/internal/reviewed-reports',enqueue_report,methods=['POST']),Mount('/',mcp.streamable_http_app())],lifespan=lifespan)
 
 class Guard:
     def __init__(self,app): self.app=app

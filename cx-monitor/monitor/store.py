@@ -13,6 +13,14 @@ CREATE TABLE IF NOT EXISTS candidates (instance text, chat text, mid text, signa
 CREATE TABLE IF NOT EXISTS checkpoints (instance text PRIMARY KEY, next_page integer DEFAULT 1, expected_total integer DEFAULT 0, scanned_at timestamptz, last_success timestamptz, last_error text, reconciliation text DEFAULT 'pending', inventory_error text);
 CREATE TABLE IF NOT EXISTS provider_records (instance text, source_id text, chat text, mid text, exclusion text, PRIMARY KEY(instance,source_id));
 CREATE TABLE IF NOT EXISTS slack_reports (channel text, ts text, author text, body text, thread_ts text, raw jsonb, imported_at timestamptz DEFAULT now(), PRIMARY KEY(channel,ts));
+CREATE TABLE IF NOT EXISTS report_outbox (
+ report_key text PRIMARY KEY,content_hash text NOT NULL,body text NOT NULL,evidence jsonb NOT NULL,
+ reviewed_by text NOT NULL,channel text NOT NULL,state text NOT NULL DEFAULT 'queued',
+ attempts integer NOT NULL DEFAULT 0,slack_ts text,last_error text,created_at timestamptz NOT NULL DEFAULT now(),
+ updated_at timestamptz NOT NULL DEFAULT now(),started_at timestamptz,available_at timestamptz NOT NULL DEFAULT now(),
+ expires_at timestamptz NOT NULL,
+ CHECK(state IN ('queued','sending','sent','retry','blocked','uncertain','expired')));
+CREATE INDEX IF NOT EXISTS report_outbox_pending ON report_outbox(state,available_at);
 '''
 
 def connect():
@@ -50,4 +58,3 @@ def save_message(db, m, signals):
     for signal in signals:
         db.execute('INSERT INTO candidates(instance,chat,mid,signal) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING',
                    (m['instance'],m['chat'],m['mid'],signal))
-

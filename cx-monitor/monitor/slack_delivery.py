@@ -2,6 +2,9 @@
 import os
 import requests
 
+class DeliveryUncertain(Exception):
+    """Slack may have accepted the POST; an automatic resend is unsafe."""
+
 class Slack:
     def __init__(self,token):
         self.session=requests.Session()
@@ -43,5 +46,15 @@ def deliver(text,client_message_id):
     client=Slack(token)
     channel=os.getenv('SLACK_DESTINATION_CHANNEL','')
     validate_destination(client,channel,os.getenv('SLACK_ALLOWED_USER_ID',''))
-    return client.call('chat.postMessage',{'channel':channel,'text':text,
-        'client_msg_id':client_message_id,'unfurl_links':False,'unfurl_media':False})
+    try:
+        return client.call('chat.postMessage',{'channel':channel,'text':text,
+            'client_msg_id':client_message_id,'unfurl_links':False,'unfurl_media':False})
+    except (requests.RequestException, KeyError, TypeError) as exc:
+        raise DeliveryUncertain('send_outcome_unknown') from exc
+    except ValueError as exc:
+        # HTTP 5xx or malformed JSON can follow acceptance. Explicit Slack
+        # rejection or rate limit is safe to classify without exposing payloads.
+        code=str(exc)
+        if code.startswith('slack_') and not code.startswith('slack_http_5'):
+            raise
+        raise DeliveryUncertain('send_outcome_unknown') from exc

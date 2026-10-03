@@ -47,5 +47,26 @@ Keep the PORT variable and public routing aligned at 8080.
 The delivery adapter verifies a private, unshared destination containing only
 the configured owner and the authenticated app before sending. Additional
 tests cover unexpected humans/bots, public/shared channels and a missing owner.
-It is disabled by default and not wired to automatic report publication yet.
-Credentials, scheduling and the reviewed-report workflow are activation gates.
+It is disabled by default. A separate PostgreSQL outbox now accepts explicitly
+owner-reviewed reports via `/internal/reviewed-reports`, protected by the ingest
+token (the query token cannot write). Each report needs a stable `report_key`,
+`text` (up to 3500 characters), `reviewed: true`, `reviewed_by` matching the
+configured owner, and an `evidence` list of `{source, reference}` objects.
+Optional timezone-aware `expires_at` must be within 24 hours; the default is 24
+hours. This endpoint is not an MCP tool. Lexical candidates never enter this
+queue automatically, and submitted fields do not replace actual owner review.
+
+The outbox binds the reviewed content and destination, rejects changed content
+under the same key, claims rows transactionally with `SKIP LOCKED`, expires stale
+queued reports, and preserves delivery receipts. Explicit rate limits retry at
+most three times. A timeout, uncertain receipt or interrupted in-flight send is
+held as `uncertain` for manual reconciliation instead of blindly resent. This
+avoids claiming exactly-once delivery from Slack client-message IDs alone.
+
+Activation still requires the dedicated Slack app token in `SLACK_BOT_TOKEN`,
+validated private-channel membership, and `SLACK_PUBLISH_ENABLED=true`. Required
+read scopes support destination/member verification; posting needs `chat:write`.
+Only configure credentials securely, never in source or chat. Do not turn it on
+until queued reports have been reviewed. Scheduling, semantic report generation,
+continuous source import and account MCP registration remain activation gates.
+`ingestion_health` now exposes outbox states and source-import freshness.
