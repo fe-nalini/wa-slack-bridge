@@ -46,7 +46,7 @@ class SafetyTests(unittest.TestCase):
             self.assertEqual(c.post('/mcp',json={}).status_code,401)
             self.assertEqual(c.post('/internal/slack-import',headers={'Authorization':'Bearer query-test-token'},json={}).status_code,401)
             self.assertEqual(c.get('/health',headers={'Origin':'https://attacker.example'}).status_code,403)
-            self.assertEqual(c.get('/health',headers={'Host':'attacker.example'}).status_code,403)
+            self.assertEqual(c.post('/mcp',headers={'Host':'attacker.example'},json={}).status_code,403)
     def test_mcp_real_protocol_and_only_read_tools(self):
         if True:
             c=self.client
