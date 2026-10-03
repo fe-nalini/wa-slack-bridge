@@ -32,7 +32,9 @@ def query(sql, args=()):
 def save_chat(db, instance, jid, subject=None, raw=None):
     db.execute('''INSERT INTO chats(instance,jid,subject,kind,source) VALUES(%s,%s,%s,%s,%s)
        ON CONFLICT(instance,jid) DO UPDATE SET subject=coalesce(EXCLUDED.subject,chats.subject),
-       source=coalesce(EXCLUDED.source,chats.source),updated_at=now()''',
+       source=coalesce(EXCLUDED.source,chats.source),updated_at=now()
+       WHERE (EXCLUDED.subject IS NOT NULL AND EXCLUDED.subject IS DISTINCT FROM chats.subject)
+       OR (EXCLUDED.source IS NOT NULL AND EXCLUDED.source IS DISTINCT FROM chats.source)''',
        (instance,jid,subject,'group' if jid.endswith('@g.us') else 'private',Jsonb(raw) if raw else None))
 
 def save_message(db, m, signals):
@@ -40,9 +42,12 @@ def save_message(db, m, signals):
     db.execute('''INSERT INTO messages(instance,chat,mid,sender,from_me,push_name,ts,body,kind,reply,media,uncertain_identity,raw)
         VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT(instance,chat,mid) DO UPDATE SET raw=EXCLUDED.raw,body=EXCLUDED.body,
-        media=EXCLUDED.media,updated_at=now()''',
+        media=EXCLUDED.media,updated_at=now()
+        WHERE messages.raw IS DISTINCT FROM EXCLUDED.raw OR messages.body IS DISTINCT FROM EXCLUDED.body
+        OR messages.media IS DISTINCT FROM EXCLUDED.media''',
         (m['instance'],m['chat'],m['mid'],m['sender'],m['from_me'],m['push_name'],m['ts'],m['text'],
          m['kind'],m['reply'],Jsonb(m['media']) if m['media'] else None,m['uncertain_identity'],Jsonb(m['raw'])))
     for signal in signals:
         db.execute('INSERT INTO candidates(instance,chat,mid,signal) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING',
                    (m['instance'],m['chat'],m['mid'],signal))
+
