@@ -39,5 +39,7 @@ evidence; do not delete it as a rollback shortcut.
 ## Deployment
 
 Select `cx-monitor/Dockerfile` as the service Dockerfile and run
-`uvicorn monitor.app:app --host 0.0.0.0 --port $PORT --no-access-log`.
+`uvicorn monitor.app:app --host 0.0.0.0 --port 8080 --no-access-log`.
 Use `/health` for liveness and authenticated MCP for ingestion status.
+
+The example port is fixed to 8080; keep the service port and public routing aligned.
