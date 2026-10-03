@@ -35,3 +35,9 @@ Use `POLL_SECONDS=300`, `BACKFILL_PAGES_PER_CYCLE=20` initially.
 Rollback: stop/remove only the new monitor service. Original Evolution, bridge,
 Postgres and Redis configurations are untouched. Preserve the pilot database for
 evidence; do not delete it as a rollback shortcut.
+
+## Deployment
+
+Select `cx-monitor/Dockerfile` as the service Dockerfile and run
+`uvicorn monitor.app:app --host 0.0.0.0 --port $PORT --no-access-log`.
+Use `/health` for liveness and authenticated MCP for ingestion status.
