@@ -10,6 +10,7 @@ class Slack:
         self.session=requests.Session()
         self.session.headers['Authorization']='Bearer '+token
     def call(self,method,payload):
+        self.last_method=method
         r=self.session.post('https://slack.com/api/'+method,json=payload,timeout=(10,30))
         if not r.ok:
             raise ValueError('slack_http_'+str(r.status_code))
@@ -39,9 +40,12 @@ def probe_destination():
     """Read-only check using protected runtime configuration, even with sending off."""
     token=os.getenv('SLACK_BOT_TOKEN','')
     if not token:
-        return {'status':'blocked','code':'slack_credential_missing'}
+        return {'status':'blocked','code':'slack_credential_missing','stage':'configuration'}
+    client=Slack(token)
+    stages={'auth.test':'authentication','conversations.info':'channel',
+            'conversations.members':'membership'}
     try:
-        validate_destination(Slack(token),os.getenv('SLACK_DESTINATION_CHANNEL',''),
+        validate_destination(client,os.getenv('SLACK_DESTINATION_CHANNEL',''),
                              os.getenv('SLACK_ALLOWED_USER_ID',''))
     except ValueError as exc:
         # Only fixed codes may reach logs; never echo response bodies or secrets.
@@ -50,11 +54,17 @@ def probe_destination():
                  'membership_not_fully_verified','unexpected_recipient',
                  'slack_invalid_auth','slack_not_authed','slack_token_revoked',
                  'slack_account_inactive','slack_missing_scope','slack_channel_not_found',
-                 'slack_not_in_channel','slack_ratelimited','slack_http_429'}
-        return {'status':'blocked','code':code if code in allowed else 'slack_check_failed'}
+                 'slack_not_in_channel','slack_ratelimited','slack_http_429',
+                 'slack_http_400','slack_http_401','slack_http_403','slack_http_404',
+                 'slack_not_allowed_token_type','slack_access_denied','slack_team_access_not_granted',
+                 'slack_org_login_required','slack_ekm_access_denied','slack_invalid_arguments',
+                 'slack_method_deprecated','slack_not_allowed','slack_is_bot','slack_user_is_bot'}
+        return {'status':'blocked','code':code if code in allowed else 'slack_check_failed',
+                'stage':stages.get(getattr(client,'last_method',''),'configuration')}
     except Exception:
-        return {'status':'unavailable','code':'slack_check_unavailable'}
-    return {'status':'ready','code':'verified_private_destination'}
+        return {'status':'unavailable','code':'slack_check_unavailable',
+                'stage':stages.get(getattr(client,'last_method',''),'configuration')}
+    return {'status':'ready','code':'verified_private_destination','stage':'complete'}
 
 def deliver(text,client_message_id):
     # Called only by an explicitly reviewed report workflow. No automatic

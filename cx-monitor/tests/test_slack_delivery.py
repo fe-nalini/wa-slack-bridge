@@ -36,6 +36,6 @@ class DeliverySafety(unittest.TestCase):
             for error,expected in [('slack_missing_scope','slack_missing_scope'),
                                    ('response contains a confidential value','slack_check_failed')]:
                 with patch('monitor.slack_delivery.validate_destination',side_effect=ValueError(error)):
-                    self.assertEqual(probe_destination(),{'status':'blocked','code':expected})
+                    self.assertEqual(probe_destination(),{'status':'blocked','code':expected,'stage':'configuration'})
 
 if __name__=='__main__':unittest.main()
