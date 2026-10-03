@@ -32,8 +32,29 @@ def validate_destination(client,channel,allowed_user):
         cursor=data.get('response_metadata',{}).get('next_cursor','')
         if not cursor:break
     else:raise ValueError('membership_not_fully_verified')
-    if allowed_user not in members or members-set([allowed_user,actor]):
+    if allowed_user not in members or actor not in members or members-set([allowed_user,actor]):
         raise ValueError('unexpected_recipient')
+
+def probe_destination():
+    """Read-only check using protected runtime configuration, even with sending off."""
+    token=os.getenv('SLACK_BOT_TOKEN','')
+    if not token:
+        return {'status':'blocked','code':'slack_credential_missing'}
+    try:
+        validate_destination(Slack(token),os.getenv('SLACK_DESTINATION_CHANNEL',''),
+                             os.getenv('SLACK_ALLOWED_USER_ID',''))
+    except ValueError as exc:
+        # Only fixed codes may reach logs; never echo response bodies or secrets.
+        code=str(exc)
+        allowed={'destination_not_configured','destination_not_exclusive_private',
+                 'membership_not_fully_verified','unexpected_recipient',
+                 'slack_invalid_auth','slack_not_authed','slack_token_revoked',
+                 'slack_account_inactive','slack_missing_scope','slack_channel_not_found',
+                 'slack_not_in_channel','slack_ratelimited','slack_http_429'}
+        return {'status':'blocked','code':code if code in allowed else 'slack_check_failed'}
+    except Exception:
+        return {'status':'unavailable','code':'slack_check_unavailable'}
+    return {'status':'ready','code':'verified_private_destination'}
 
 def deliver(text,client_message_id):
     # Called only by an explicitly reviewed report workflow. No automatic

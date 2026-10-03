@@ -109,6 +109,8 @@ def process_once():
     return 'sent'
 
 def run(stop):
+    result = slack_delivery.probe_destination()
+    log.info('slack_preflight status=%s code=%s', result['status'], result['code'])
     while not stop.is_set():
         try:
             for _ in range(10):
