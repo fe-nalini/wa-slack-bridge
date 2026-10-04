@@ -11,7 +11,7 @@ class Slack:
         self.session.headers['Authorization']='Bearer '+token
     def call(self,method,payload):
         self.last_method=method
-        if method in {'auth.test','conversations.info','conversations.members','conversations.history'}:
+        if method in {'auth.test','conversations.info','conversations.members','conversations.history','conversations.replies'}:
             r=self.session.get('https://slack.com/api/'+method,params=payload,timeout=(10,30))
         elif method=='chat.postMessage':
             r=self.session.post('https://slack.com/api/'+method,json=payload,timeout=(10,30))
