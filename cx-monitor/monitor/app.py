@@ -39,6 +39,8 @@ def ingestion_health() -> dict:
             'analysis_generation':{'enabled':os.getenv('ANALYSIS_ENABLED','false')=='true',
                 'runs':store.query('SELECT kind,state,count(*) AS runs,max(created_at) AS latest FROM analysis_runs GROUP BY kind,state')},
             'source_sync_health':store.query('SELECT * FROM slack_source_health'),
+            'thread_sync_health':store.query('SELECT * FROM slack_thread_health'),
+            'dashboard_sync_health':store.query('SELECT * FROM dashboard_sync_health'),
             'technical_tests':store.query('SELECT run_key,state,slack_ts,updated_at FROM delivery_tests'),
             'source_report_freshness':store.query('SELECT channel,count(*) AS reports,max(imported_at) AS last_import FROM slack_reports GROUP BY channel'),
             'limitations':['Polling MVP: 5-minute target, not realtime guarantee.',

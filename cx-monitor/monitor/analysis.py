@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 from psycopg.types.json import Jsonb
-from . import store, slack_delivery
+from . import store, slack_delivery, dashboard
 from .core import scrub, candidate
 
 log = logging.getLogger('cx-analysis')
@@ -210,16 +210,17 @@ def build_bundle(now):
             'thread_context_truncated':len(context)>100,
             'thread_context':[{'ts':m['ts'],'author':m['author'],'body':safe_text(m['body'])} for m in context[:100]],
             'classification':'source_statement_requires_crosscheck'})
-    return json_ready({'version':2,'generated_at':now,'window_start':datetime.fromtimestamp(start,timezone.utc),
+    dashboard_context=dashboard.bundle_context(now)
+    return json_ready({'version':3,'generated_at':now,'window_start':datetime.fromtimestamp(start,timezone.utc),
         'window_end':now,'kind':'evidence_triage','requires_review':True,'published':False,
         'whatsapp_cases':cases,'whatsapp_cases_truncated':len(rows)>100,
         'slack_source_statements':slack_cases,'slack_statements_truncated':len(source_rows)>200,
         'capture_health':store.query('SELECT * FROM checkpoints'),
         'slack_health':store.query('SELECT * FROM slack_source_health'),'thread_health':thread_health,
-        'source_limits':LIMITS,'sla_rules':{'0':'forms de handoff, preenchido pelo vendedor',
+        'dashboard':dashboard_context,'source_limits':[x for x in LIMITS if not (dashboard_context['loaded'] and x.startswith('Dashboard não'))],'sla_rules':{'0':'forms de handoff, preenchido pelo vendedor',
             '7':'forms do Club, preenchido pelo membro','overdue':'Prevista vencida e sem conclusão.',
             'completed_late':'Conclusão posterior à previsão original; concluir não apaga atraso.',
-            'blame':'Atribuição de causa requer evidência separada.','dashboard_snapshot_loaded':False}})
+            'blame':'Atribuição de causa requer evidência separada.','dashboard_snapshot_loaded':dashboard_context['loaded']}})
 
 def generate_once(now=None):
     now = now or datetime.now(timezone.utc)
@@ -246,7 +247,7 @@ def run(stop):
         try:
             now = datetime.now(timezone.utc)
             if last_source_sync is None or (now-last_source_sync).total_seconds()>=300:
-                sync_sources(stop); last_source_sync=now
+                sync_sources(stop); dashboard.sync_once(); last_source_sync=now
             generate_once(now)
         except Exception as exc:
             log.warning('analysis_worker_failed code=%s',type(exc).__name__)

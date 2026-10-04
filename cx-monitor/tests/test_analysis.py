@@ -76,7 +76,7 @@ class PipelineTests(unittest.TestCase):
     def test_evidence_bundle_preserves_unknown_identity_and_requires_review(self):
         case={'instance':'synthetic','chat':'synthetic@g.us','mid':'1','ts':1791040000,
               'body':'Solicitei reembolso','subject':'Synthetic','signals':['cancelamento_reembolso']}
-        with patch.object(analysis.store,'query',side_effect=[[case],[],[],[],[],[]]):
+        with patch.object(analysis.store,'query',side_effect=[[case],[],[],[],[],[],[]]):
             bundle=analysis.build_bundle(datetime(2026,10,3,20,tzinfo=timezone.utc))
         self.assertIsNone(bundle['whatsapp_cases'][0]['confirmed_deal_id'])
         self.assertTrue(bundle['requires_review']);self.assertFalse(bundle['published'])

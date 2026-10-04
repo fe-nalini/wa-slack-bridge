@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS slack_source_health (channel text PRIMARY KEY,last_su
 CREATE TABLE IF NOT EXISTS slack_thread_health (channel text,thread_ts text,complete boolean DEFAULT false,
  observed_reply_count integer,observed_latest_reply text,last_success timestamptz,last_error text,
  updated_at timestamptz DEFAULT now(),PRIMARY KEY(channel,thread_ts));
+CREATE TABLE IF NOT EXISTS dashboard_snapshots (fetched_at timestamptz PRIMARY KEY,payload jsonb NOT NULL,
+ imported_at timestamptz DEFAULT now());
+CREATE TABLE IF NOT EXISTS dashboard_sync_health (source text PRIMARY KEY,last_success timestamptz,last_error text,
+ updated_at timestamptz DEFAULT now());
 CREATE TABLE IF NOT EXISTS analysis_runs (run_key text PRIMARY KEY,kind text NOT NULL,state text NOT NULL DEFAULT 'needs_review',
  payload jsonb NOT NULL,created_at timestamptz DEFAULT now());
 
