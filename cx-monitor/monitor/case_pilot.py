@@ -35,7 +35,7 @@ def build():
         AND ts::numeric >= %s ORDER BY ts::numeric''',
         ('C0BNDFL2PC7','%Tatiane Arruda%',int(datetime(2026,9,30,tzinfo=TZ).timestamp())))
     def when(ts):
-        return datetime.fromtimestamp(int(ts),timezone.utc).astimezone(TZ).strftime('%d/%m %H:%M')
+        return datetime.fromtimestamp(float(ts),timezone.utc).astimezone(TZ).strftime('%d/%m %H:%M')
     lines = [f'*TESTE DE EVIDÊNCIAS — Club | {NAME} | Deal {DEAL_ID}*',
         'Leitura do histórico recuperado pelo CX Monitor. Vínculo entre fontes: nome e sequência temporal; Deal ID conhecido no dashboard, mas ainda não transmitido no snapshot. Associação do grupo é provável, não uma chave técnica confirmada.',
         f'Dashboard: {member.get("full_name")} | membro {member["id"]} | CA ID {member.get("ca_id")} | snapshot {rows[0]["fetched_at"].astimezone(TZ):%d/%m %H:%M}.',
