@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 from psycopg.types.json import Jsonb
-from . import store, slack_delivery, dashboard
+from . import store, slack_delivery, dashboard, case_pilot
 from .core import scrub, candidate
 
 log = logging.getLogger('cx-analysis')
@@ -247,7 +247,7 @@ def run(stop):
         try:
             now = datetime.now(timezone.utc)
             if last_source_sync is None or (now-last_source_sync).total_seconds()>=300:
-                sync_sources(stop); dashboard.sync_once(); last_source_sync=now
+                sync_sources(stop); dashboard.sync_once(); case_pilot.send_once(); last_source_sync=now
             generate_once(now)
         except Exception as exc:
             log.warning('analysis_worker_failed code=%s',type(exc).__name__)
