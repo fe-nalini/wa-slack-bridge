@@ -17,7 +17,7 @@ def configuration():
     url=os.getenv('DASHBOARD_READ_URL','')
     token=os.getenv('DASHBOARD_READ_TOKEN','')
     if not url or not token: raise ValueError('dashboard_read_configuration_missing')
-    if not re.fullmatch(r'https://[a-z0-9-]+\.supabase\.co/functions/v1/cx-monitor-onboarding-read',url):
+    if not re.fullmatch(r'https://ohuzcsfqwzrrcbqaumrr\.supabase\.co/functions/v1/(?:cx-monitor-onboarding-read|bright-processor)',url):
         raise ValueError('dashboard_read_url_invalid')
     if len(token)<32: raise ValueError('dashboard_read_token_invalid')
     return url,token
