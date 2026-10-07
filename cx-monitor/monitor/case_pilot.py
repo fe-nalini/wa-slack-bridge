@@ -42,21 +42,21 @@ def build():
         f'*Venda:* 30/09/2026  •  *Deal:* <https://app.hubspot.com/contacts/7186301/record/0-3/{DEAL_ID}|{DEAL_ID}>  •  *CA:* Carolina Moreno',
         f'*Fontes:* onboarding {rows[0]["fetched_at"].astimezone(TZ):%d/%m %H:%M}; WhatsApp {len(messages)} msgs ({when(messages[0]["ts"])}–{when(messages[-1]["ts"])}); Slack {len(reports)} relatos.',
         '*Vínculo:* nome, venda e CA convergem; ID do Deal ainda não consta no feed. Grupo único por título; associação provável.',
-        '\n*JORNADA E SLA* (P = previsão calculada como na tela; O = data original não verificada)']
+        '\n*JORNADA E SLA* (todas as etapas obrigatórias; P = previsão calculada como na tela; original não verificada)']
     for s in sorted(steps,key=lambda x:int(x.get('step_number') or 0)):
         due,basis=dates[s['id']]
         done=dashboard.local_date(s.get('completed_at'))
         verdict=slas.classify(due.isoformat() if due else None,done.isoformat() if done else None,today)
         mark={'completed_late':'🔴','overdue':'🔴','completed_on_time':'✅','pending_on_time':'⏳'}.get(verdict['status'],'?')
         label=s.get('step_name')
-        lines.append(f'{mark} {s.get("step_number")}. {label}: P {due.strftime("%d/%m") if due else "?"} → {done.strftime("%d/%m") if done else "pendente"}{" (opcional)" if s.get("is_optional") else ""}')
+        lines.append(f'{mark} {s.get("step_number")}. {label}: P {due.strftime("%d/%m") if due else "?"} → {done.strftime("%d/%m") if done else "pendente"}')
     lines += ['\n*WHATSAPP | FATOS*',
         '30/09 18h31 Carol se apresenta; 18h35–18h36 Tatiane responde e escolhe 1ª call 02/10 15h e Board 23/11.',
         '30/09 19h20 link do formulário enviado. 01/10 11h51 Tatiane responde durante Scale Ladies. 02/10 10h19 confirma a call.',
         'Não responsividade: não sustentada por este histórico. Apresentação inicial ≠ inserção nos grupos do Club.',
         '\n*LEITURA / AÇÃO*',
         'Handoff e aprovação no comitê aparecem concluídos depois da previsão mostrada. Conferir observações, histórico da previsão e responsabilidade antes de atribuir causa.',
-        'Overdelivery permanece sem conclusão registrada: conferir envio e registrar evidência. Prazo de 24h após handoff exige conferir o horário, separado da previsão da tela.',
+        'Overdelivery: solicitação deve ocorrer até 24h úteis após o handoff; conferir horário e evidência da solicitação, que é distinta da entrega e do check da etapa.',
         'Inserção nos grupos do Club é etapa final distinta; comparar previsão e relato de 07/10 com execução real.',
         '1ª e 2ª calls têm link na jornada; conteúdo das gravações fica para v2.',
         f'<https://gestao40.slack.com/archives/C0BNDFL2PC7/p1791307856123619|Relato Club 06/10> • <https://csg4.g4business.com/onboarding|Jornada>']
