@@ -8,7 +8,7 @@ from . import store, slack_delivery, dashboard, slas
 
 log = logging.getLogger('cx-case-pilot')
 TZ = ZoneInfo('America/Sao_Paulo')
-RUN_KEY = 'tatiane-65511973694-audit-v3-context'
+RUN_KEY = 'tatiane-65511973694-audit-v4-context'
 NAME = 'Tatiane Arruda'
 DEAL_ID = '65511973694'
 
@@ -73,7 +73,8 @@ def build():
     lines += ['\n*📣 SLACK — DECLARAÇÕES DO REPORT*']
     for r in reports:
         link='https://gestao40.slack.com/archives/C0BNDFL2PC7/p'+str(r['ts']).replace('.','')
-        lines.append(f'<{link}|{when(r["ts"])}> — {r["body"]}')
+        relevant='\n'.join(line for line in r['body'].splitlines() if NAME.casefold() in line.casefold())
+        lines.append(f'<{link}|{when(r["ts"])}> — {relevant}')
     lines += ['\n*⚖ CONVERGÊNCIAS / DIVERGÊNCIAS / DECISÃO*',
         'Convergência a verificar pelas transcrições: disponibilidade da cliente e agenda. Relato de call ainda “agendada” depois da data merece conciliação com o check e a evidência da conclusão; isso é diferença de atualização, não prova de call não realizada.',
         'Calls com o mesmo horário de conclusão exigem conferir se é horário da execução ou do registro. Links de gravação não demonstram conteúdo nem resultado sem leitura.',
