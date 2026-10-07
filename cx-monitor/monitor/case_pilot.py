@@ -8,7 +8,7 @@ from . import store, slack_delivery, dashboard, slas
 
 log = logging.getLogger('cx-case-pilot')
 TZ = ZoneInfo('America/Sao_Paulo')
-RUN_KEY = 'tatiane-65511973694-audit-v2'
+RUN_KEY = 'tatiane-65511973694-audit-v3-context'
 NAME = 'Tatiane Arruda'
 DEAL_ID = '65511973694'
 
@@ -38,31 +38,49 @@ def build():
         return datetime.fromtimestamp(float(ts),timezone.utc).astimezone(TZ).strftime('%d/%m %H:%M')
     dates=dashboard.display_deadlines(member,steps,snap.get('templates',[]))
     today=datetime.now(TZ).date().isoformat()
-    lines=[f'*CLUB | AUDITORIA PILOTO — {NAME}*',
-        f'*Venda:* 30/09/2026  •  *Deal:* <https://app.hubspot.com/contacts/7186301/record/0-3/{DEAL_ID}|{DEAL_ID}>  •  *CA:* Carolina Moreno',
-        f'*Fontes:* onboarding {rows[0]["fetched_at"].astimezone(TZ):%d/%m %H:%M}; WhatsApp {len(messages)} msgs ({when(messages[0]["ts"])}–{when(messages[-1]["ts"])}); Slack {len(reports)} relatos.',
-        '*Vínculo:* nome, venda e CA convergem; ID do Deal ainda não consta no feed. Grupo único por título; associação provável.',
-        '\n*JORNADA E SLA* (todas as etapas obrigatórias; P = previsão calculada como na tela; original não verificada)']
+    lines=[f'*🔎 FRED | PILOTO CX / CS — {NAME}*',
+        f'*Data venda:* {member.get("sale_date") or "30/09/2026 (referência fornecida)"} • *Negócio / Deal:* <https://app.hubspot.com/contacts/7186301/record/0-3/{DEAL_ID}|{DEAL_ID}> • *CA:* Carolina Moreno (relato Slack)',
+        f'*Leitura das fontes:* onboarding {rows[0]["fetched_at"].astimezone(TZ):%d/%m %H:%M}; WhatsApp {len(messages)} mensagens; Slack {len(reports)} relatos.',
+        '*Escopo:* teste contextual com jornada, mensagens e relatos abaixo. Deals Premium / timeline comercial não consultada neste teste. Histórico da previsão original e anexos não disponíveis no feed; notas limitadas a 500 caracteres. Nenhuma conclusão sobre churn, pagamento ou exceção comercial sem essa fonte.',
+        '*Identidade:* membro único e grupo único pelo nome. Deal indicado por Fernanda; vínculo grupo–Deal provável, sem identificador compartilhado confirmado.',
+        '\n*🟠 LEITURA E ACIONÁVEL*',
+        'No histórico já auditado, Tatiane responde à apresentação, escolhe agenda e confirma a call. Isso sustenta engajamento e não sustenta PL por não responsividade. As mensagens atuais estão transcritas abaixo para conferência; eventuais novidades prevalecem sobre essa leitura.',
+        'A comunicação inicial apresenta próximos passos e convida ao Board; é um sinal positivo de condução. Para avaliar personalização premium e primeiro valor, é necessário relacionar objetivos registrados nas notas à construção da jornada. Horário exato da venda ausente: não é possível calcular venda → primeira mensagem com precisão.',
+        'Apresentação no grupo de onboarding e inserção nos grupos do Club são etapas distintas. O relato de inserção em 07/10 deve ser confrontado com a execução da etapa final, sem tratar a apresentação de 30/09 como conclusão dessa etapa.',
+        '*Próximo passo:* Carolina, como CA citada no report, revisar as pendências e evidências da jornada; responsabilidade de cada causa a validar. Malu (operações Club) apoiar consistência dos registros; atribuição desta ação proposta, não confirmada.',
+        '\n*⏱ ETAPAS EM ATRASO — HÁ QUANTOS DIAS*',
+        'Todas obrigatórias. Comparação com previsão atual calculada como na tela; violação da previsão original a validar. Contagem abaixo em dias corridos; data sem hora vence ao fim do dia local.']
     for s in sorted(steps,key=lambda x:int(x.get('step_number') or 0)):
         due,basis=dates[s['id']]
         done=dashboard.local_date(s.get('completed_at'))
         verdict=slas.classify(due.isoformat() if due else None,done.isoformat() if done else None,today)
-        mark={'completed_late':'🔴','overdue':'🔴','completed_on_time':'✅','pending_on_time':'⏳'}.get(verdict['status'],'?')
-        label=s.get('step_name')
-        lines.append(f'{mark} {s.get("step_number")}. {label}: P {due.strftime("%d/%m") if due else "?"} → {done.strftime("%d/%m") if done else "pendente"}')
-    lines += ['\n*WHATSAPP | FATOS*',
-        '30/09 18h31 Carol se apresenta; 18h35–18h36 Tatiane responde e escolhe 1ª call 02/10 15h e Board 23/11.',
-        '30/09 19h20 link do formulário enviado. 01/10 11h51 Tatiane responde durante Scale Ladies. 02/10 10h19 confirma a call.',
-        'Não responsividade: não sustentada por este histórico. Apresentação inicial ≠ inserção nos grupos do Club.',
-        '\n*LEITURA / AÇÃO*',
-        'Handoff e aprovação no comitê aparecem concluídos depois da previsão mostrada. Conferir observações, histórico da previsão e responsabilidade antes de atribuir causa.',
-        'Overdelivery: solicitação deve ocorrer até 24h úteis após o handoff; conferir horário e evidência da solicitação, que é distinta da entrega e do check da etapa.',
-        'Inserção nos grupos do Club é etapa final distinta; comparar previsão e relato de 07/10 com execução real.',
-        '1ª e 2ª calls têm link na jornada; conteúdo das gravações fica para v2.',
-        f'<https://gestao40.slack.com/archives/C0BNDFL2PC7/p1791307856123619|Relato Club 06/10> • <https://csg4.g4business.com/onboarding|Jornada>']
+        if verdict['status'] in ('completed_late','overdue'):
+            end=done or datetime.now(TZ).date()
+            days=(end-due).days
+            lines.append(f'🔴 {s.get("step_number")}. {s.get("step_name")}: previsão {due:%d/%m}; '+(f'concluída {done:%d/%m}' if done else 'sem conclusão registrada')+f'; {days} dia(s). Causa ainda não atribuída.')
+    lines += ['*Overdelivery:* SLA da SOLICITAÇÃO = até 24h úteis após forms de handoff; entrega e check são eventos diferentes. Não aplicar automaticamente a previsão genérica da etapa para julgar a solicitação. Horário/evidência da solicitação e calendário de horas úteis precisam sustentar o veredito.',
+        '\n*📝 OBSERVAÇÕES / EVIDÊNCIAS DA JORNADA*']
+    for s in sorted(steps,key=lambda x:int(x.get('step_number') or 0)):
+        if s.get('note'):
+            lines.append(f'{s.get("step_number")}. {s.get("step_name")}: {s["note"]}')
+        if s.get('call_link'):
+            lines.append(f'{s.get("step_number")}. gravação registrada; conteúdo reservado à v2.')
+    if not any(s.get('note') for s in steps):
+        lines.append('Nenhuma nota recebida nesta leitura. Isso não prova ausência de atendimento.')
+    lines += ['\n*💬 WHATSAPP — CRONOLOGIA E REFERÊNCIAS*',f'Grupo: {chat["subject"]} • JID: {chat["jid"]}']
+    for m in messages:
+        lines.append(f'{when(m["ts"])} • ID {m["mid"]} • {m.get("body") or "[mídia/sem texto]"}')
+    lines += ['\n*📣 SLACK — DECLARAÇÕES DO REPORT*']
+    for r in reports:
+        link='https://gestao40.slack.com/archives/C0BNDFL2PC7/p'+str(r['ts']).replace('.','')
+        lines.append(f'<{link}|{when(r["ts"])}> — {r["body"]}')
+    lines += ['\n*⚖ CONVERGÊNCIAS / DIVERGÊNCIAS / DECISÃO*',
+        'Convergência a verificar pelas transcrições: disponibilidade da cliente e agenda. Relato de call ainda “agendada” depois da data merece conciliação com o check e a evidência da conclusão; isso é diferença de atualização, não prova de call não realizada.',
+        'Calls com o mesmo horário de conclusão exigem conferir se é horário da execução ou do registro. Links de gravação não demonstram conteúdo nem resultado sem leitura.',
+        'Classificação: atenção operacional a validar nos pontos de prazo e qualidade de registro; PL / churn não confirmados. Atraso e causa separados. A regra de cancelamento depende do marco de onboarding e da cronologia comercial; venda do mês passado, isoladamente, não determina responsabilidade.',
+        '<https://csg4.g4business.com/onboarding|Fonte da jornada> • <https://app.notion.com/p/g40/Regras-de-Cancelamento-Receita-Prazos-e-Responsabilidades-d76b431349e1831f97f78187675d3d79|Regras de PL / cancelamento>',
+        '*Resultado do teste:* leitura e publicação destas fontes; auditoria ponta a ponta permanece parcial pelas lacunas declaradas.']
     text='\n'.join(lines)
-    if len(text)>3900:
-        text=text[:3800]+'\n[Resumo limitado por tamanho; histórico integral permanece no CX Monitor.]'
     return text, 'ready'
 
 def send_once():
