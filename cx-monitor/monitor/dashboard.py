@@ -143,7 +143,7 @@ def bundle_context(now):
                 'step_number':step.get('step_number'),
                 'step_name':slas.STEP_NAMES.get(str(step.get('step_number')),step.get('step_name')),
                 'planned_at':step.get('planned_at'),'display_deadline':due.isoformat() if due else None,
-                'completed_at':step.get('completed_at'),'is_optional':step.get('is_optional'),
+                'completed_at':step.get('completed_at'),'source_optional_label':step.get('is_optional'),'required_for_club':True,
                 'note':step.get('note'),'call_link':step.get('call_link'),
                 'classification':verdict,'deadline_basis':basis,
                 'original_deadline_verified':False,'cause_confirmed':False})
