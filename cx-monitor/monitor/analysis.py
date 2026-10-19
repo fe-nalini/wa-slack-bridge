@@ -1,4 +1,4 @@
-"""Recurring evidence preparation. No LLM, inferred SLA, identity match or publication."""
+"""Recurring Slack/WhatsApp triage. Onboarding audits live in the official dashboard."""
 import json
 import logging
 import os
@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 from psycopg.types.json import Jsonb
-from . import store, slack_delivery, dashboard, case_pilot
+from . import store, slack_delivery
 from .core import scrub, candidate
 
 log = logging.getLogger('cx-analysis')
@@ -18,7 +18,7 @@ LIMITS = ['Triagem por palavras; exige leitura e revisão do contexto, não conf
           'Grupos e pessoas do WhatsApp ainda não estão vinculados ao Deal por ID confirmado.',
           'Histórico recuperável não comprova ausência de atendimento ou mensagens excluídas.',
           'Cobertura das threads é indicada por conversa; o histórico de descoberta é limitado às últimas 72 horas e registros já importados.',
-          'Dashboard não tem ingestão contínua autenticada; Desk será integrado por último.',
+          'Auditoria de onboarding pertence ao dashboard oficial; o feed e o piloto legados foram retirados desta triagem.',
           'Áudios/anexos não foram transcritos. Nenhum candidato é publicado automaticamente.']
 
 def configured_sources():
@@ -210,17 +210,21 @@ def build_bundle(now):
             'thread_context_truncated':len(context)>100,
             'thread_context':[{'ts':m['ts'],'author':m['author'],'body':safe_text(m['body'])} for m in context[:100]],
             'classification':'source_statement_requires_crosscheck'})
-    dashboard_context=dashboard.bundle_context(now)
-    return json_ready({'version':3,'generated_at':now,'window_start':datetime.fromtimestamp(start,timezone.utc),
+    # Preserve historical snapshots and pilot receipts without polling the retired feed.
+    dashboard_context = {'loaded': False, 'status': 'retired_legacy_onboarding_context',
+        'sla_findings': [], 'official_source': 'Atendimento Premium / Saúde Club',
+        'note': 'Auditoria por Deal/membro/etapa no dashboard; captura não calcula SLA.'}
+    return json_ready({'version':4,'generated_at':now,'window_start':datetime.fromtimestamp(start,timezone.utc),
         'window_end':now,'kind':'evidence_triage','requires_review':True,'published':False,
         'whatsapp_cases':cases,'whatsapp_cases_truncated':len(rows)>100,
         'slack_source_statements':slack_cases,'slack_statements_truncated':len(source_rows)>200,
         'capture_health':store.query('SELECT * FROM checkpoints'),
         'slack_health':store.query('SELECT * FROM slack_source_health'),'thread_health':thread_health,
-        'dashboard':dashboard_context,'source_limits':[x for x in LIMITS if not (dashboard_context['loaded'] and x.startswith('Dashboard não'))],'sla_rules':{'0':'forms de handoff, preenchido pelo vendedor',
-            '7':'forms do Club, preenchido pelo membro','overdue':'Prevista vencida e sem conclusão.',
-            'completed_late':'Conclusão posterior à previsão original; concluir não apaga atraso.',
-            'blame':'Atribuição de causa requer evidência separada.','dashboard_snapshot_loaded':dashboard_context['loaded']}})
+        'dashboard':dashboard_context,'source_limits':LIMITS,
+        'sla_rules':{'source':'official_dashboard_only','calculated_here':False,
+            'blame':'Atribuição de causa requer evidência separada.',
+            'dashboard_snapshot_loaded':False}})
+
 
 def generate_once(now=None):
     now = now or datetime.now(timezone.utc)
@@ -247,7 +251,7 @@ def run(stop):
         try:
             now = datetime.now(timezone.utc)
             if last_source_sync is None or (now-last_source_sync).total_seconds()>=300:
-                sync_sources(stop); dashboard.sync_once(); case_pilot.send_once(); last_source_sync=now
+                sync_sources(stop); last_source_sync=now
             generate_once(now)
         except Exception as exc:
             log.warning('analysis_worker_failed code=%s',type(exc).__name__)
